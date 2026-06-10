@@ -1,0 +1,10 @@
+# Ignora l'ambiente virtuale
+venv/
+__pycache__/
+
+# IGNORA SEMPRE I SEGRETI E LE API KEY
+.env
+
+# Ignora file di sistema OS
+.DS_Store
+Thumbs.db
