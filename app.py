@@ -3,13 +3,13 @@ import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-from tenacity import retry, wait_exponential, stop_after_attempt
 from langchain_openai import ChatOpenAI
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, AIMessage
 
-# IMPORT CORRETTO E STABILE (Quello che ha funzionato nel terminale)
-from langchain.agents import create_agent
+# IMPORT STABILI PER LANGCHAIN 0.2.1 (Versione Cloud)
+from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 # ==========================================
 # 1. SETUP E CONFIGURAZIONE UI
@@ -21,7 +21,7 @@ st.set_page_config(page_title="AI Bando Advisor", page_icon="🏢", layout="cent
 # ==========================================
 # 2. SISTEMA DI AUTENTICAZIONE
 # ==========================================
-PASSWORD_ACCESSO = os.environ.get("APP_PASSWORD", "a")
+PASSWORD_ACCESSO = os.environ.get("APP_PASSWORD", "admin123")
 
 def verifica_login():
     if "autenticato" not in st.session_state:
@@ -41,27 +41,17 @@ def verifica_login():
 verifica_login()
 
 # ==========================================
-# 3. TOOL & AGENTE
+# 3. TOOL & AGENTE (Architettura Stabile)
 # ==========================================
 @tool
-@retry(
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    stop=stop_after_attempt(3),
-    reraise=False # Non fa crashare Streamlit, ma restituisce l'errore come stringa all'LLM
-)
 def interroga_database_bando(categoria: str = None, punteggio_minimo: float = 0):
     """Cerca le aziende nel database cloud di Google Sheets in tempo reale."""
-    # Dependency Injection dell'URL, nessuna hardcoding
     sheet_url = os.environ.get("GOOGLE_SHEET_URL")
-    
     if not sheet_url:
-        return "Errore Critico: Manca l'URL del database cloud nelle variabili d'ambiente."
+        return "Errore Critico: Manca l'URL del database cloud."
         
     try:
-        # I/O di Rete: Legge lo stream CSV direttamente da Google
         df = pd.read_csv(sheet_url)
-        
-        # Normalizzazione dello schema: rimuove eventuali spazi vuoti lasciati dall'utente su Google Sheets
         df.columns = df.columns.str.strip()
         
         if categoria:
@@ -77,30 +67,31 @@ def interroga_database_bando(categoria: str = None, punteggio_minimo: float = 0)
     except pd.errors.EmptyDataError:
         return "Errore Dati: Il foglio Google è vuoto."
     except Exception as e:
-        # Cattura errori di parsing o di rete
-        raise RuntimeError(f"Fallimento della connessione a Google Sheets: {str(e)}")
+        return f"Fallimento della connessione a Google Sheets: {str(e)}"
 
 @st.cache_resource
 def inizializza_agente():
-    """Istanzia l'agente usando la sintassi V1 unificata."""
+    """Istanzia l'agente usando l'architettura AgentExecutor consolidata."""
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.0)
-    istruzioni = (
-        "Sei il Financial Advisor dell'azienda. Rispondi in italiano professionale. "
-        "Usa sempre il tool a disposizione per interrogare i dati dei bandi."
-    )
-    # Usiamo create_agent esattamente come nel main.py funzionante
-    return create_agent(
-        model=llm, 
-        tools=[interroga_database_bando], 
-        system_prompt=istruzioni
-    )
+    tools = [interroga_database_bando]
+    
+    # Prompt strutturato richiesto dalla versione 0.2.1
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "Sei il Financial Advisor dell'azienda. Rispondi in italiano professionale. Usa sempre il tool a disposizione per interrogare i dati dei bandi."),
+        MessagesPlaceholder(variable_name="chat_history"),
+        ("user", "{input}"),
+        MessagesPlaceholder(variable_name="agent_scratchpad"),
+    ])
+    
+    agente = create_tool_calling_agent(llm, tools, prompt)
+    return AgentExecutor(agent=agente, tools=tools, verbose=False)
 
 agente_ia = inizializza_agente()
 
 # ==========================================
 # 4. INTERFACCIA CHAT
 # ==========================================
-st.title("Enterprise AI - Bando Advisor")
+st.title("🏢 Enterprise AI - Bando Advisor")
 st.markdown("Interroga il database aziendale in linguaggio naturale.")
 st.divider()
 
@@ -116,16 +107,20 @@ if domanda := st.chat_input("Es: Trovami i ristoranti con più di 100 punti...")
     with st.chat_message("user"):
         st.markdown(domanda)
     
-    st.session_state["cronologia_chat"].append(HumanMessage(content=domanda))
-    
     with st.chat_message("assistant"):
         with st.spinner("Analisi database in corso..."):
             try:
-                # Passiamo l'intera cronologia per mantenere il contesto
-                risposta = agente_ia.invoke({"messages": st.session_state["cronologia_chat"]})
-                messaggio_finale = risposta["messages"][-1].content
+                # Invocazione compatibile con AgentExecutor
+                risposta = agente_ia.invoke({
+                    "input": domanda,
+                    "chat_history": st.session_state["cronologia_chat"]
+                })
                 
+                messaggio_finale = risposta["output"]
                 st.markdown(messaggio_finale)
+                
+                # Salvataggio in memoria post-esecuzione
+                st.session_state["cronologia_chat"].append(HumanMessage(content=domanda))
                 st.session_state["cronologia_chat"].append(AIMessage(content=messaggio_finale))
             except Exception as e:
                 st.error(f"Fallimento del servizio IA: {e}")
