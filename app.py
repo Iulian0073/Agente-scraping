@@ -62,7 +62,7 @@ def interroga_database_bando(categoria: str = None, punteggio_minimo: float = 0)
         if df.empty:
             return "Nessun risultato trovato nel database cloud."
             
-        return df[['Azienda', 'Categoria', 'Dipendenti', 'Investimento', 'Punteggio_Totale']].to_string(index=False)
+        return df[['Azienda', 'Categoria', 'Dipendenti', 'Investimento_Necessario', 'Punteggio_Totale']].to_string(index=False)
         
     except pd.errors.EmptyDataError:
         return "Errore Dati: Il foglio Google è vuoto."
