@@ -62,7 +62,26 @@ def interroga_database_bando(categoria: str = None, punteggio_minimo: float = 0)
         if df.empty:
             return "Nessun risultato trovato nel database cloud."
             
-        return df[['Azienda', 'Categoria', 'Dipendenti', 'Investimento_Richiesto', 'Punteggio_Totale']].to_string(index=False)
+        # Diamo all'LLM la visibilità totale sull'algoritmo di scoring
+        colonne_da_mostrare = [
+            'Azienda',
+            'Categoria',
+            'Dipendenti',
+            'Peso_Dipendenti',
+            'Investimento',
+            'Peso_Investimento',
+            'Voto_Sostenibilita',
+            'Peso_Sostenibilita',
+            'Voto_Innovazione',
+            'Peso_Innovazione',
+            'Punteggio_Totale'
+        ]
+        
+        # Filtriamo il dataframe per mostrare solo le colonne rilevanti
+        # Aggiungi un controllo per evitare errori se hai scritto i nomi leggermente diversi su Excel
+        colonne_effettive = [col for col in colonne_da_mostrare if col in df.columns]
+        
+        return df[colonne_effettive].to_string(index=False)
         
     except pd.errors.EmptyDataError:
         return "Errore Dati: Il foglio Google è vuoto."
