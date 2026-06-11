@@ -74,7 +74,7 @@ def interroga_database_bando(categoria: str = None, punteggio_minimo: float = 0)
             'Peso_Sostenibilita',
             'Voto_Innovazione',
             'Peso_Innovazione',
-            'Punteggio_Totale'
+            'Punteggio_Totale_Classifica'
         ]
         
         # Filtriamo il dataframe per mostrare solo le colonne rilevanti
