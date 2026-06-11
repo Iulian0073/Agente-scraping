@@ -57,7 +57,7 @@ def interroga_database_bando(categoria: str = None, punteggio_minimo: float = 0)
         if categoria:
             df = df[df['Categoria'].str.lower() == categoria.lower()]
         if punteggio_minimo > 0:
-            df = df[df['Punteggio_Totale'] >= punteggio_minimo]
+            df = df[df['Punteggio_Totale_Classifica'] >= punteggio_minimo]
             
         if df.empty:
             return "Nessun risultato trovato nel database cloud."
