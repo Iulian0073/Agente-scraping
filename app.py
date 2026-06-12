@@ -67,13 +67,9 @@ def interroga_database_bando(categoria: str = None, punteggio_minimo: float = 0)
             'Azienda',
             'Categoria',
             'Dipendenti',
-            'Peso_Dipendenti',
             'Investimento',
-            'Peso_Investimento',
             'Voto_Sostenibilita',
-            'Peso_Sostenibilita',
             'Voto_Innovazione',
-            'Peso_Innovazione',
             'Punteggio_Totale_Classifica'
         ]
         
